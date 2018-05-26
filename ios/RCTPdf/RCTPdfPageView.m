@@ -37,8 +37,8 @@
 #define RLog( s, ... ) NSLog( @"<%p %@:(%d)> %@", self, [[NSString stringWithUTF8String:__FILE__] lastPathComponent], __LINE__, [NSString stringWithFormat:(s), ##__VA_ARGS__] )
 
 @implementation RCTPdfPageView {
-
-   
+    
+    
 }
 
 - (instancetype)init
@@ -68,7 +68,7 @@
         if ([[changedProps objectAtIndex:i] isEqualToString:@"page"]) {
             [self setNeedsDisplay];
         }
-
+        
     }
     
     [self setNeedsDisplay];
@@ -82,39 +82,40 @@
 
 -(void)drawLayer:(CALayer*)layer inContext:(CGContextRef)context
 {
-    
-    // PDF page drawing expects a Lower-Left coordinate system, so we flip the coordinate system before drawing.
-    CGContextScaleCTM(context, 1.0, -1.0);
-    
-    CGPDFDocumentRef pdfRef= [PdfManager getPdf:_fileNo];
-    if (pdfRef!=NULL)
-    {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        // PDF page drawing expects a Lower-Left coordinate system, so we flip the coordinate system before drawing.
+        CGContextScaleCTM(context, 1.0, -1.0);
         
-        CGPDFPageRef pdfPage = CGPDFDocumentGetPage(pdfRef, _page);
-        
-        if (pdfPage != NULL) {
+        CGPDFDocumentRef pdfRef= [PdfManager getPdf:_fileNo];
+        if (pdfRef!=NULL)
+        {
             
-            CGContextSaveGState(context);
-            CGRect pageBounds;
+            CGPDFPageRef pdfPage = CGPDFDocumentGetPage(pdfRef, _page);
+            
+            if (pdfPage != NULL) {
+                
+                CGContextSaveGState(context);
+                CGRect pageBounds;
                 pageBounds = CGRectMake(0,
                                         -self.bounds.size.height,
                                         self.bounds.size.width,
                                         self.bounds.size.height);
+                
+                // Fill the background with white.
+                CGContextSetRGBFillColor(context, 1.0,1.0,1.0,1.0);
+                CGContextFillRect(context, pageBounds);
+                
+                CGAffineTransform pageTransform = CGPDFPageGetDrawingTransform(pdfPage, kCGPDFCropBox, pageBounds, 0, true);
+                CGContextConcatCTM(context, pageTransform);
+                
+                CGContextDrawPDFPage(context, pdfPage);
+                CGContextRestoreGState(context);
+                
+                RLog(@"drawpage %d", _page);
+            }
             
-            // Fill the background with white.
-            CGContextSetRGBFillColor(context, 1.0,1.0,1.0,1.0);
-            CGContextFillRect(context, pageBounds);
-            
-            CGAffineTransform pageTransform = CGPDFPageGetDrawingTransform(pdfPage, kCGPDFCropBox, pageBounds, 0, true);
-            CGContextConcatCTM(context, pageTransform);
-            
-            CGContextDrawPDFPage(context, pdfPage);
-            CGContextRestoreGState(context);
-            
-            RLog(@"drawpage %d", _page);
         }
-
-    }
+    });
 }
 
 @end
